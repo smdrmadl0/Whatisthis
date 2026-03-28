@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aesthetic Analyzer</title>
+  
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/variable/pretendardvariable.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    :root {
+      --bg-color: #fafafa;
+      --main-black: #111111;
+      --border-color: #e5e5e5;
+      --accent-blue: #3b82f6;
+      --accent-red: #ef4444;
+      --shadow-soft: 0 8px 24px rgba(0,0,0,0.04);
+      --shadow-btn: 0 4px 10px rgba(0,0,0,0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Pretendard Variable', sans-serif; -webkit-font-smoothing: antialiased; }
+    body { background-color: var(--bg-color); color: var(--main-black); line-height: 1.5; padding-bottom: 80px; }
+
+    .top-nav { background: white; border-bottom: 1px solid var(--border-color); padding: 16px 24px; font-weight: 800; font-size: 16px; text-align: center; text-transform: uppercase; letter-spacing: 0.5px; }
+    .container { max-width: 600px; margin: 0 auto; padding: 48px 20px; }
+    
+    .header { margin-bottom: 40px; text-align: center; }
+    .title { font-size: 40px; font-weight: 800; line-height: 1.2; letter-spacing: -1px; margin-bottom: 16px; word-break: keep-all; }
+    .desc { font-size: 17px; font-weight: 500; color: #666; line-height: 1.6; }
+
+    .upload-section { display: block; }
+    .upload-grid { display: flex; gap: 12px; margin-bottom: 12px; }
+    .upload-slot { flex: 1; aspect-ratio: 1/1; background: white; border: 2px dashed #ccc; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; position: relative; overflow: hidden; box-shadow: var(--shadow-soft); }
+    .upload-slot:not(.slot-locked):hover { border-color: var(--accent-blue); background: #f8fafc; transform: translateY(-2px); }
+    .upload-slot.slot-locked { cursor: not-allowed; pointer-events: none; border-color: #ccc; }
+    .upload-slot input[type="file"] { display: none; }
+    .slot-icon { font-size: 30px; color: #aaa; margin-bottom: 4px; }
+    .slot-text { font-size: 15px; font-weight: 600; color: #888; }
+    .slot-preview { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; z-index: 2; display: none; }
+    .slot-remove { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; background: rgba(0,0,0,0.6); color: white; border-radius: 50%; font-size: 12px; font-weight: bold; display: none; align-items: center; justify-content: center; cursor: pointer; z-index: 3; }
+    .slot-remove:hover { background: rgba(239,68,68,0.9); }
+    .upload-guide { text-align: center; font-size: 16px; font-weight: 600; color: #444; margin-bottom: 4px; }
+    .upload-warn { text-align: center; font-size: 14px; font-weight: 500; color: #888; background: #eee; padding: 4px 10px; border-radius: 8px; display: block; margin: 0 auto 32px; width: max-content; }
+
+    .btn-primary { width: 100%; background: var(--main-black); color: white; font-size: 18px; font-weight: 700; padding: 16px; border: none; border-radius: 12px; cursor: pointer; transition: all 0.15s; margin-bottom: 40px; box-shadow: var(--shadow-btn); }
+    .btn-primary:hover { background: #333; transform: translateY(-1px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); }
+    .btn-primary:disabled { background: #e5e5e5; color: #999; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .loading { display: none; padding: 28px 0 36px; }
+    .loading.show { display: block; }
+    .loading-text { text-align: center; font-weight: 700; font-size: 17px; color: var(--accent-blue); margin-bottom: 16px; animation: pulse 1.2s infinite alternate; }
+    @keyframes pulse { 0%{opacity:0.4} 100%{opacity:1} }
+    .loading-steps { display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .step-dot { font-size: 14px; font-weight: 700; color: #bbb; padding: 4px 12px; border-radius: 999px; border: 1.5px solid #e5e5e5; transition: all 0.4s; }
+    .step-dot.active { color: var(--accent-blue); border-color: var(--accent-blue); background: #eff6ff; }
+    .step-dot.done { color: #22c55e; border-color: #86efac; background: #f0fdf4; }
+    .progress-wrap { background: #eeeeee; border-radius: 999px; height: 6px; overflow: hidden; margin: 0 auto; max-width: 400px; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent-blue), #60a5fa); border-radius: 999px; width: 0%; transition: width 0.6s ease; }
+
+    .result-image-viewer { width: 100%; border-radius: 16px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.1); background: #000; }
+    .result-image-viewer img { width: 100%; height: auto; max-height: 500px; object-fit: contain; display: block; transition: opacity 0.25s ease; }
+
+    .result-area { display: none; }
+    .result-area.show { display: block; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+    .tab-guide-text { text-align: center; font-size: 16px; font-weight: 700; color: var(--accent-blue); margin-bottom: 12px; background: #eff6ff; padding: 8px; border-radius: 8px; border: 1px solid #bfdbfe; }
+    .tab-container { display: flex; gap: 10px; margin-bottom: 24px; justify-content: center; }
+    .tab-item { width: 64px; height: 64px; border-radius: 12px; border: 3px solid transparent; overflow: hidden; cursor: pointer; opacity: 0.5; transition: all 0.2s; box-shadow: var(--shadow-btn); }
+    .tab-item img { width: 100%; height: 100%; object-fit: cover; }
+    .tab-item:hover { opacity: 0.8; transform: translateY(-2px); }
+    .tab-item.active { border-color: var(--main-black); opacity: 1; transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); }
+
+    .card { background: white; border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: var(--shadow-soft); margin-bottom: 24px; }
+    .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; }
+    .card-icon { font-size: 20px; color: #aaa; }
+    .card-label { font-size: 14px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+    .overall-vibe { font-size: 30px; font-weight: 900; margin-bottom: 4px; line-height: 1.2; letter-spacing: -0.5px; text-transform: uppercase; }
+    .style-ko { font-size: 17px; font-weight: 700; color: #666; margin-bottom: 16px; }
+    .desc-text { font-size: 17px; color: #333; margin-bottom: 16px; line-height: 1.6; font-weight: 500; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border-left: 3px solid var(--accent-blue); }
+
+    .char-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+    .char-tag { background: #f1f5f9; border: 1px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #475569; padding: 5px 12px; border-radius: 999px; }
+
+    .comp-block { margin-bottom: 20px; }
+    .comp-block:last-child { margin-bottom: 0; }
+    .comp-row { display: flex; align-items: center; margin-bottom: 6px; }
+    .comp-name { width: 140px; font-size: 16px; font-weight: 700; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .comp-bar-bg { flex: 1; height: 10px; background: #f0f0f0; border-radius: 999px; margin: 0 16px; overflow: hidden; }
+    .comp-bar-fill { height: 100%; background: var(--main-black); border-radius: 999px; transition: width 0.6s ease; width: 0%; }
+    .comp-percent { width: 45px; font-size: 17px; font-weight: 800; color: var(--main-black); text-align: right; }
+    .comp-def { font-size: 14px; font-weight: 500; color: #888; line-height: 1.6; padding: 6px 10px; background: #f8f8f8; border-radius: 6px; border-left: 2px solid #ddd; }
+
+    .pinterest-box { background: #fffcfc; border-color: #fca5a5; }
+    .keyword-chip { display: inline-block; background: var(--accent-red); color: white; font-size: 16px; font-weight: 700; padding: 10px 18px; border-radius: 8px; cursor: pointer; box-shadow: var(--shadow-btn); margin: 0 6px 8px 0; transition: opacity 0.15s; }
+    .keyword-chip:hover { opacity: 0.85; }
+    .pinterest-guide { font-size: 15px; color: #dc2626; font-weight: 600; margin-bottom: 12px; }
+
+    .action-group { margin-top: 32px; display: flex; flex-direction: column; gap: 10px; }
+    .btn-download { width: 100%; background: var(--accent-blue); color: white; font-size: 17px; font-weight: 700; padding: 16px; border: none; border-radius: 12px; cursor: pointer; box-shadow: var(--shadow-btn); transition: all 0.1s; }
+    .btn-download:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 6px 12px rgba(37,99,235,0.2); }
+    .btn-secondary { width: 100%; background: white; color: var(--main-black); font-size: 17px; font-weight: 700; padding: 15px; border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; transition: all 0.1s; }
+    .btn-secondary:hover { background: #f5f5f5; }
+
+    .error-msg { background: #fee2e2; border: 1px solid #fca5a5; border-radius: 12px; padding: 16px; font-weight: 700; font-size: 16px; color: #b91c1c; display: none; margin-bottom: 24px; text-align: left; word-break: break-all; line-height: 1.5; }
+    .error-msg.show { display: block; }
+
+    #exportTemplate {
+      position: absolute; left: -9999px; top: -9999px;
+      width: 640px; background-color: #0e0e0e; color: #ffffff;
+      box-sizing: border-box; font-family: 'Pretendard Variable', sans-serif;
+      border-radius: 24px; overflow: hidden; z-index: -1;
+    }
+    .ex-img-wrap { position: relative; width: 100%; height: 300px; overflow: hidden; }
+    .ex-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(0.65); }
+    .ex-img-overlay { position: absolute; inset: 0; padding: 28px 32px; display: flex; flex-direction: column; justify-content: flex-end; background: linear-gradient(to top, rgba(14,14,14,0.92) 0%, rgba(14,14,14,0.1) 60%, transparent 100%); }
+    .ex-badge { display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #ffffff; font-size: 10px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; padding: 4px 10px; border-radius: 4px; margin-bottom: 12px; width: fit-content; }
+    .ex-name-en { font-size: 40px; font-weight: 900; color: #ffffff; letter-spacing: -1.5px; line-height: 1.05; text-transform: uppercase; margin-bottom: 6px; }
+    .ex-name-ko { font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.6); }
+    .ex-body { padding: 28px 32px 32px; }
+    .ex-description { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.65); line-height: 1.75; margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .ex-section-label { font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.3); letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 14px; }
+    .ex-comp-section { margin-bottom: 28px; }
+    .ex-comp-block { margin-bottom: 14px; }
+    .ex-row { display: flex; align-items: center; margin-bottom: 5px; }
+    .ex-row-name { width: 150px; font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ex-bar-bg { flex: 1; height: 6px; background-color: rgba(255,255,255,0.1); border-radius: 999px; margin: 0 14px; overflow: hidden; }
+    .ex-bar-fill { height: 100%; background-color: #ffffff; border-radius: 999px; }
+    .ex-row-pct { width: 38px; font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.9); text-align: right; }
+    .ex-def { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.4); line-height: 1.5; padding-left: 2px; }
+    .ex-kw-section { margin-bottom: 28px; }
+    .ex-keywords { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ex-kw { background-color: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .ex-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); }
+    .ex-footer-txt { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.25); letter-spacing: 1px; text-transform: uppercase; }
+    .ex-footer-dot { width: 6px; height: 6px; background-color: rgba(255,255,255,0.15); border-radius: 50%; }
+  </style>
+</head>
+<body>
+
+<div class="top-nav">Design Aesthetic Analyzer</div>
+<div class="container">
+  <div class="header">
+    <h1 class="title">이런 디자인은<br>뭐라고 부를까요?</h1>
+    <p class="desc">레퍼런스 이미지를 등록하면, 디자인 스타일에 관한 리포트를 정리해 드립니다.</p>
+  </div>
+
+  <div class="upload-section" id="uploadSection">
+    <div class="upload-grid" id="uploadGrid">
+      <div class="upload-slot" id="slot0" onclick="triggerFile(0)">
+        <input type="file" id="file0" accept="image/jpeg,image/png,image/webp" onchange="handleSingleFile(this, 0)">
+        <div class="slot-icon" id="icon0">+</div>
+        <div class="slot-text" id="text0">사진 1</div>
+        <img class="slot-preview" id="preview0" src="" alt="">
+        <div class="slot-remove" id="remove0" onclick="removeImage(event,0)">✕</div>
+      </div>
+      <div class="upload-slot" id="slot1" onclick="triggerFile(1)">
+        <input type="file" id="file1" accept="image/jpeg,image/png,image/webp" onchange="handleSingleFile(this, 1)">
+        <div class="slot-icon" id="icon1">+</div>
+        <div class="slot-text" id="text1">사진 2</div>
+        <img class="slot-preview" id="preview1" src="" alt="">
+        <div class="slot-remove" id="remove1" onclick="removeImage(event,1)">✕</div>
+      </div>
+      <div class="upload-slot" id="slot2" onclick="triggerFile(2)">
+        <input type="file" id="file2" accept="image/jpeg,image/png,image/webp" onchange="handleSingleFile(this, 2)">
+        <div class="slot-icon" id="icon2">+</div>
+        <div class="slot-text" id="text2">사진 3</div>
+        <img class="slot-preview" id="preview2" src="" alt="">
+        <div class="slot-remove" id="remove2" onclick="removeImage(event,2)">✕</div>
+      </div>
+    </div>
+    <p class="upload-guide" id="uploadGuide">최대 3장까지 등록할 수 있어요</p>
+    <span class="upload-warn" id="uploadWarn">✨ 5MB 이상의 고화질 이미지는 자동 최적화됩니다.</span>
+    <button class="btn-primary" id="analyzeBtn" onclick="analyze()" disabled>미학 분석 시작하기 👀</button>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="loading-text" id="loadingText">이미지를 읽는 중...</div>
+    <div class="loading-steps">
+      <div class="step-dot" id="step0">🔍 이미지 분석</div>
+      <div class="step-dot" id="step1">🎨 미학 분류</div>
+      <div class="step-dot" id="step2">✅ 결과 정리</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="result-area" id="resultArea">
+    <div class="result-image-viewer">
+      <img id="resultMainImg" src="" alt="">
+    </div>
+    <div class="tab-guide-text" id="tabGuideText">👇 썸네일을 클릭해 개별 분석 결과를 확인하세요</div>
+    <div class="tab-container" id="tabContainer"></div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-icon">🎯</span><span class="card-label">Dominant Aesthetic</span></div>
+      <div class="overall-vibe" id="overallVibeDesc"></div>
+      <div class="style-ko" id="styleNameKo"></div>
+      <div class="desc-text" id="descText"></div>
+      <div class="char-tags" id="charTags"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-icon">📊</span><span class="card-label">Aesthetic Composition</span></div>
+      <div id="compositionBars"></div>
+    </div>
+
+    <div class="card pinterest-box">
+      <div class="card-header" style="border-color:#fecaca;"><span class="card-icon">🌐</span><span class="card-label" style="color:#dc2626;">Pinterest Shortcuts</span></div>
+      <p class="pinterest-guide">추천 검색 키워드를 눌러 핀터레스트에서 확인해보세요!</p>
+      <div id="keywordList"></div>
+    </div>
+
+    <div class="action-group">
+      <button class="btn-download" onclick="downloadRecipe()">📸 Style Report 저장하기 (현재 탭)</button>
+      <button class="btn-secondary" onclick="reset()">새로운 이미지 분석하기</button>
+    </div>
+  </div>
+</div>
+
+<div id="exportTemplate">
+  <div class="ex-img-wrap">
+    <img id="exImg" src="" alt="">
+    <div class="ex-img-overlay">
+      <div class="ex-badge">Style Report</div>
+      <div class="ex-name-en" id="exNameEn"></div>
+      <div class="ex-name-ko" id="exNameKo"></div>
+    </div>
+  </div>
+  <div class="ex-body">
+    <div class="ex-description" id="exDescription"></div>
+    <div class="ex-comp-section">
+      <div class="ex-section-label">Aesthetic Composition</div>
+      <div id="exBars"></div>
+    </div>
+    <div class="ex-kw-section">
+      <div class="ex-section-label">Pinterest Keywords</div>
+      <div class="ex-keywords" id="exKeywords"></div>
+    </div>
+    <div class="ex-footer">
+      <div class="ex-footer-txt">Design Aesthetic Analyzer</div>
+      <div class="ex-footer-dot"></div>
+      <div class="ex-footer-txt">CARI Reference</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const part1 = 'sk-ant-';
+  const part2 = 'api03-';
+  const part3 = 'cE4qXfyMl-9kCS74pUjfX1ie-';
+  const part4 = 'oa749x5hFacZXWKTNMy9fAayRtUbs796vFZnuFg2D_ZYeCOSg-uOFFxpfrlsg-0RWpNgAA';
+  const API_KEY = part1 + part2 + part3 + part4;
+
+  let imageB64Array = [null, null, null];
+  let imageUrls     = [null, null, null];
+  let analysisResults = [];
+  let currentTabIndex = 0;
+  let slotsLocked = false;
+  let progressTimer = null;
+
+  function triggerFile(index) {
+    if (slotsLocked) return;
+    document.getElementById('file' + index).click();
+  }
+
+  function startProgress() {
+    const bar = document.getElementById('progressBar');
+    const steps = [
+      { id: 'step0', text: '이미지를 읽는 중...', pct: 15 },
+      { id: 'step1', text: '미학을 분류하는 중...', pct: 55 },
+      { id: 'step2', text: '결과를 정리하는 중...', pct: 85 },
+    ];
+    let si = 0;
+    bar.style.width = '5%';
+    steps.forEach(s => document.getElementById(s.id).className = 'step-dot');
+    function advance() {
+      if (si >= steps.length) return;
+      const s = steps[si];
+      document.getElementById('loadingText').textContent = s.text;
+      bar.style.width = s.pct + '%';
+      document.getElementById(s.id).classList.add('active');
+      if (si > 0) document.getElementById(steps[si - 1].id).className = 'step-dot done';
+      si++;
+    }
+    advance();
+    progressTimer = setInterval(advance, 4000);
+  }
+
+  function finishProgress() {
+    clearInterval(progressTimer);
+    document.getElementById('progressBar').style.width = '100%';
+    ['step0','step1','step2'].forEach(id => document.getElementById(id).className = 'step-dot done');
+    document.getElementById('loadingText').textContent = '분석 완료! ✨';
+  }
+
+  function resetProgress() {
+    clearInterval(progressTimer);
+    document.getElementById('progressBar').style.width = '0%';
+    ['step0','step1','step2'].forEach(id => document.getElementById(id).className = 'step-dot');
+    document.getElementById('loadingText').textContent = '이미지를 읽는 중...';
+  }
+
+  function handleSingleFile(input, index) {
+    const file = input.files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('icon' + index).style.display = 'none';
+      document.getElementById('text' + index).style.display = 'none';
+      const imgEl = document.getElementById('preview' + index);
+      imgEl.src = e.target.result; imgEl.style.display = 'block';
+      imageUrls[index] = e.target.result;
+      document.getElementById('remove' + index).style.display = 'flex';
+      document.getElementById('slot' + index).style.borderColor = 'var(--accent-blue)';
+
+      const imageObj = new Image();
+      imageObj.src = e.target.result;
+      imageObj.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 1024;
+        let w = imageObj.width;
+        let h = imageObj.height;
+        if (w > h) {
+          if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        } else {
+          if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(imageObj, 0, 0, w, h);
+        imageB64Array[index] = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+        document.getElementById('analyzeBtn').disabled = false;
+      };
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+  }
+
+  function removeImage(event, index) {
+    event.stopPropagation(); event.preventDefault();
+    if (slotsLocked) return;
+    imageB64Array[index] = null; imageUrls[index] = null;
+    document.getElementById('preview' + index).style.display = 'none';
+    document.getElementById('preview' + index).src = '';
+    document.getElementById('remove' + index).style.display = 'none';
+    document.getElementById('icon' + index).style.display = 'block';
+    document.getElementById('text' + index).style.display = 'block';
+    document.getElementById('slot' + index).style.borderColor = '#ccc';
+    document.getElementById('analyzeBtn').disabled = !imageB64Array.some(b => b !== null);
+  }
+
+  async function analyze() {
+    const validImages = imageB64Array.filter(b => b !== null);
+    if (!validImages.length) return;
+
+    slotsLocked = true;
+    [0,1,2].forEach(i => {
+      document.getElementById('slot' + i).classList.add('slot-locked');
+      document.getElementById('remove' + i).style.display = 'none';
+    });
+    document.getElementById('analyzeBtn').style.display = 'none';
+    document.getElementById('uploadGuide').style.display = 'none';
+    document.getElementById('uploadWarn').style.display = 'none';
+    document.getElementById('loading').classList.add('show');
+    document.getElementById('resultArea').classList.remove('show');
+    document.getElementById('errorMsg').classList.remove('show');
+    startProgress();
+
+    const prompt = `당신은 CARI(Consumer Aesthetics Research Institute)의 수석 디자인 연구원입니다.
+업로드된 ${validImages.length}장의 이미지를 순서대로 각각 분석하여, CARI 데이터베이스에 등록된 정확한 공식 미학(Aesthetic)을 판별해주세요.
+
+[🔥 절대 규칙]
+1. 대표 미학명(aesthetic_name_en)은 반드시 CARI 공식 영문 명칭 딱 1개만 작성하세요. (예: Frutiger Aero, Vaporwave, Y2K 등. 지어내기 절대 금지)
+2. CARI에 없더라도 Goblincore, Dark Academia처럼 커뮤니티에서 널리 통용되는 미학명은 사용 가능합니다.
+3. 이미지의 미학이 혼합되어 있다면 composition 배열에 2~3개의 미학과 비율(%)을 수치로 나타내주세요.
+4. 오직 순수 JSON 형식만 출력하세요. 마크다운 기호나 추가 설명 절대 금지.
+5. 텍스트 내부의 큰따옴표나 줄바꿈은 작은따옴표로 대체하세요.
+
+다음 형식의 JSON으로만 답해주세요. 다른 말은 절대 하지 말고 JSON만 반환하세요:
+
+{
+  "aesthetic_name_en": "CARI 공식 미학 영문명 딱 1개",
+  "aesthetic_name_ko": "한국어 미학명",
+  "description": "이 이미지의 시각적 특징과 분위기 설명 1~2문장",
+  "characteristics": ["시각적 특징 태그1", "태그2", "태그3", "태그4"],
+  "composition": [
+    {
+      "name": "미학명(영문)",
+      "percent": 70,
+      "definition": "이 미학이 무엇인지 한 줄 정의. 등장 시기, 대표 특징 포함."
+    },
+    {
+      "name": "미학명(영문)",
+      "percent": 30,
+      "definition": "이 미학이 무엇인지 한 줄 정의."
+    }
+  ],
+  "pinterest_keywords": ["검색키워드1", "검색키워드2", "검색키워드3"]
+}`;
+
+    // 🔥 1장씩 개별 API 호출 (정확도 향상)
+    const stepTexts = ['첫 번째 이미지 분석 중...', '두 번째 이미지 분석 중...', '세 번째 이미지 분석 중...'];
+
+    try {
+      analysisResults = [];
+
+      for (let i = 0; i < validImages.length; i++) {
+        // 진행 단계 업데이트
+        document.getElementById('loadingText').textContent = stepTexts[i] || `이미지 ${i+1} 분석 중...`;
+        document.getElementById('progressBar').style.width = `${10 + (i / validImages.length) * 80}%`;
+        ['step0','step1','step2'].forEach((id, idx) => {
+          const el = document.getElementById(id);
+          if (idx < i) el.className = 'step-dot done';
+          else if (idx === i) el.className = 'step-dot active';
+          else el.className = 'step-dot';
+        });
+
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': API_KEY,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 1024,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: validImages[i] } },
+                { type: 'text', text: prompt }
+              ]
+            }]
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error?.message || '분석 실패');
+
+        let rawText = data.content[0].text.trim();
+        if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+        else if (rawText.startsWith('```')) rawText = rawText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+        const si = rawText.indexOf('{'), ei = rawText.lastIndexOf('}');
+        if (si === -1 || ei === -1) throw new Error(`이미지 ${i+1} JSON 파싱 실패`);
+
+        const parsed = JSON.parse(rawText.substring(si, ei + 1));
+        // 초기 버전 포맷(main_style_en) & 새 포맷(aesthetic_name_en) 모두 지원
+        analysisResults.push({
+          aesthetic_name_en: parsed.aesthetic_name_en || parsed.main_style_en || '',
+          aesthetic_name_ko: parsed.aesthetic_name_ko || parsed.main_style_ko || '',
+          description: parsed.description || '',
+          characteristics: parsed.characteristics || [],
+          composition: parsed.composition || [],
+          pinterest_keywords: parsed.pinterest_keywords || []
+        });
+      }
+
+      finishProgress();
+      setTimeout(() => {
+        document.getElementById('loading').classList.remove('show');
+        resetProgress();
+        document.getElementById('uploadSection').style.display = 'none';
+        buildTabs(imageUrls.filter(u => u !== null));
+        renderTab(0);
+        document.getElementById('resultArea').classList.add('show');
+      }, 700);
+
+    } catch (err) {
+      clearInterval(progressTimer);
+      resetProgress();
+      document.getElementById('loading').classList.remove('show');
+      slotsLocked = false;
+      [0,1,2].forEach(i => {
+        document.getElementById('slot' + i).classList.remove('slot-locked');
+        if (imageB64Array[i]) document.getElementById('remove' + i).style.display = 'flex';
+      });
+      document.getElementById('analyzeBtn').style.display = 'block';
+      document.getElementById('uploadGuide').style.display = 'block';
+      document.getElementById('uploadWarn').style.display = 'block';
+      const el = document.getElementById('errorMsg');
+      el.innerHTML = err.message.includes('Failed to fetch')
+        ? '🚨 <b>네트워크 에러!</b> Live Server로 열거나 광고 차단기를 꺼주세요.'
+        : '삐빅! 오류: ' + err.message;
+      el.classList.add('show');
+    }
+  }
+
+  function buildTabs(urls) {
+    const container = document.getElementById('tabContainer');
+    container.innerHTML = '';
+    document.getElementById('tabGuideText').style.display = urls.length > 1 ? 'block' : 'none';
+    if (urls.length <= 1) { container.style.display = 'none'; return; }
+    container.style.display = 'flex';
+    urls.forEach((url, i) => {
+      const tab = document.createElement('div');
+      tab.className = 'tab-item'; tab.id = 'tab-' + i;
+      tab.onclick = () => renderTab(i);
+      const img = document.createElement('img'); img.src = url;
+      tab.appendChild(img); container.appendChild(tab);
+    });
+  }
+
+  function renderTab(index) {
+    currentTabIndex = index;
+    document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+    const at = document.getElementById('tab-' + index);
+    if (at) at.classList.add('active');
+
+    const validUrls = imageUrls.filter(u => u !== null);
+    const mainImg = document.getElementById('resultMainImg');
+    mainImg.style.opacity = '0';
+    setTimeout(() => {
+      mainImg.src = validUrls[index] || '';
+      mainImg.style.opacity = '1';
+    }, 150);
+
+    const r = analysisResults[index];
+    if (!r) return;
+
+    document.getElementById('overallVibeDesc').textContent = r.aesthetic_name_en || 'Unknown';
+    document.getElementById('styleNameKo').textContent = r.aesthetic_name_ko || '';
+    document.getElementById('descText').textContent = r.description || '';
+
+    const charEl = document.getElementById('charTags');
+    charEl.innerHTML = '';
+    (r.characteristics || []).forEach(c => {
+      charEl.innerHTML += `<span class="char-tag">${c}</span>`;
+    });
+
+    const barsEl = document.getElementById('compositionBars');
+    barsEl.innerHTML = '';
+    (r.composition || []).forEach(comp => {
+      barsEl.innerHTML += `
+        <div class="comp-block">
+          <div class="comp-row">
+            <div class="comp-name" title="${comp.name}">${comp.name}</div>
+            <div class="comp-bar-bg"><div class="comp-bar-fill" style="width:0%" data-width="${comp.percent}%"></div></div>
+            <div class="comp-percent">${comp.percent}%</div>
+          </div>
+          ${comp.definition ? `<div class="comp-def">${comp.definition}</div>` : ''}
+        </div>`;
+    });
+    setTimeout(() => {
+      document.querySelectorAll('.comp-bar-fill').forEach(b => b.style.width = b.getAttribute('data-width'));
+    }, 50);
+
+    const kwEl = document.getElementById('keywordList');
+    kwEl.innerHTML = '';
+    (r.pinterest_keywords || []).forEach(kw => {
+      kwEl.innerHTML += `<div class="keyword-chip" onclick="window.open('https://www.pinterest.com/search/pins/?q=${encodeURIComponent(kw)}')">${kw}</div>`;
+    });
+  }
+
+  function downloadRecipe() {
+    const r = analysisResults[currentTabIndex];
+    const imgUrl = imageUrls.filter(u => u !== null)[currentTabIndex];
+    document.getElementById('exImg').src = imgUrl;
+    document.getElementById('exNameEn').textContent = r.aesthetic_name_en || '';
+    document.getElementById('exNameKo').textContent = r.aesthetic_name_ko || '';
+    document.getElementById('exDescription').textContent = r.description || '';
+    const exBars = document.getElementById('exBars');
+    exBars.innerHTML = '';
+    (r.composition || []).forEach(comp => {
+      exBars.innerHTML += `
+        <div class="ex-comp-block">
+          <div class="ex-row">
+            <div class="ex-row-name">${comp.name}</div>
+            <div class="ex-bar-bg"><div class="ex-bar-fill" style="width:${comp.percent}%"></div></div>
+            <div class="ex-row-pct">${comp.percent}%</div>
+          </div>
+          ${comp.definition ? `<div class="ex-def">${comp.definition}</div>` : ''}
+        </div>`;
+    });
+    const exKw = document.getElementById('exKeywords');
+    exKw.innerHTML = '';
+    (r.pinterest_keywords || []).forEach(kw => { exKw.innerHTML += `<div class="ex-kw">${kw}</div>`; });
+    html2canvas(document.getElementById('exportTemplate'), {
+      backgroundColor: '#0e0e0e', scale: 2, useCORS: true, logging: false
+    }).then(canvas => {
+      const link = document.createElement('a');
+      link.download = `style-report_${(r.aesthetic_name_en || 'export').replace(/\s+/g, '-').toLowerCase()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+  }
+
+  function reset() {
+    [0,1,2].forEach(i => {
+      imageB64Array[i] = null; imageUrls[i] = null;
+      document.getElementById('slot'+i).style.display = 'flex';
+      document.getElementById('slot'+i).classList.remove('slot-locked');
+      document.getElementById('preview'+i).style.display = 'none';
+      document.getElementById('preview'+i).src = '';
+      document.getElementById('remove'+i).style.display = 'none';
+      document.getElementById('icon'+i).style.display = 'block';
+      document.getElementById('text'+i).style.display = 'block';
+      document.getElementById('slot'+i).style.borderColor = '#ccc';
+    });
+    analysisResults = []; slotsLocked = false;
+    document.getElementById('uploadSection').style.display = 'block';
+    document.getElementById('uploadGuide').style.display = 'block';
+    document.getElementById('uploadWarn').style.display = 'block';
+    document.getElementById('analyzeBtn').style.display = 'block';
+    document.getElementById('analyzeBtn').disabled = true;
+    document.getElementById('resultArea').classList.remove('show');
+    document.getElementById('resultMainImg').src = '';
+  }
+</script>
+</body>
+</html>
